@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DentAI Pro | نظام إدارة العيادة المتكامل</title>
+    <!-- CSS & Fonts -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Tajawal', sans-serif; background-color: #f0f4f8; }
+        .glass { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); }
+        .sidebar-btn.active { background: #0891b2; color: white; box-shadow: 0 4px 15px rgba(8, 145, 178, 0.3); }
+        input, select { transition: all 0.3s; border: 1px solid #e2e8f0; }
+        input:focus { border-color: #0891b2; ring: 2px; ring-color: #0891b2; }
+    </style>
+</head>
+<body class="text-slate-800">
+
+<div class="flex h-screen overflow-hidden">
+    <!-- Sidebar -->
+    <aside class="w-72 bg-white border-l border-slate-200 flex flex-col p-6 shadow-2xl z-30">
+        <div class="flex items-center gap-3 mb-10 px-2">
+            <div class="bg-cyan-600 p-2 rounded-xl text-white shadow-lg"><i data-lucide="tooth"></i></div>
+            <h1 class="text-2xl font-black text-cyan-800">DentAI <span class="text-xs font-light block tracking-widest text-slate-400 text-left">PRO SYSTEM</span></h1>
+        </div>
+
+        <nav class="space-y-2 flex-1">
+            <button onclick="switchTab('dashboard')" id="btn-dashboard" class="sidebar-btn active w-full flex items-center gap-4 px-4 py-3 rounded-xl font-bold transition-all"><i data-lucide="layout-grid"></i> لوحة التحكم</button>
+            <button onclick="switchTab('patients')" id="btn-patients" class="sidebar-btn w-full flex items-center gap-4 px-4 py-3 rounded-xl font-medium text-slate-500 hover:bg-slate-50 transition-all"><i data-lucide="users"></i> قائمة المرضى</button>
+            <button onclick="switchTab('add')" id="btn-add" class="sidebar-btn w-full flex items-center gap-4 px-4 py-3 rounded-xl font-medium text-slate-500 hover:bg-slate-50 transition-all"><i data-lucide="user-plus"></i> مريض جديد</button>
+        </nav>
+
+        <div class="bg-slate-900 rounded-2xl p-4 text-white text-center">
+            <p class="text-[10px] text-slate-400 uppercase">حالة النظام</p>
+            <p class="text-sm font-bold">متصل - حفظ محلي</p>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 overflow-y-auto relative">
+        <!-- Topbar -->
+        <header class="sticky top-0 bg-white/80 backdrop-blur-md px-10 py-5 flex justify-between items-center border-b border-slate-100 z-20">
+            <h2 id="tab-title" class="text-2xl font-black text-slate-700">لوحة التحكم</h2>
+            <div class="flex items-center gap-4">
+                <div class="text-left"><p class="text-sm font-bold">د. علي الأسدي</p><p class="text-[10px] text-slate-400">عيادة بغداد التخصصية</p></div>
+                <div class="w-12 h-12 bg-cyan-100 rounded-2xl flex items-center justify-center text-cyan-600 font-bold">DR</div>
+            </div>
+        </header>
+
+        <div class="p-10">
+            <!-- Section: Dashboard -->
+            <div id="tab-dashboard" class="tab-content space-y-8">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8 text-white">
+                    <div class="bg-gradient-to-br from-cyan-600 to-blue-700 p-8 rounded-[2rem] shadow-xl">
+                        <i data-lucide="users-2" class="mb-4 opacity-50"></i>
+                        <p class="opacity-80">إجمالي المرضى</p>
+                        <h4 class="text-4xl font-black mt-2" id="stat-count">0</h4>
+                    </div>
+                    <div class="bg-gradient-to-br from-emerald-500 to-teal-700 p-8 rounded-[2rem] shadow-xl text-white">
+                        <i data-lucide="banknote" class="mb-4 opacity-50"></i>
+                        <p class="opacity-80">الإيرادات المحصلة</p>
+                        <h4 class="text-4xl font-black mt-2" id="stat-revenue">0 د.ع</h4>
+                    </div>
+                    <div class="bg-gradient-to-br from-rose-500 to-orange-600 p-8 rounded-[2rem] shadow-xl">
+                        <i data-lucide="alert-triangle" class="mb-4 opacity-50"></i>
+                        <p class="opacity-80">ديون متبقية</p>
+                        <h4 class="text-4xl font-black mt-2" id="stat-debts">0 د.ع</h4>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-[2rem] p-8 border border-slate-100 shadow-sm">
+                    <h3 class="text-xl font-bold mb-6 flex items-center gap-3"><i data-lucide="history" class="text-cyan-600"></i> آخر المراجعات</h3>
+                    <div id="recent-list" class="space-y-4">
+                        <!-- Content via JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section: Patients List -->
+            <div id="tab-patients" class="tab-content hidden space-y-6">
+                <div class="flex gap-4 mb-6">
+                    <div class="relative flex-1">
+                        <i data-lucide="search" class="absolute right-4 top-3.5 text-slate-400 w-5 h-5"></i>
+                        <input type="text" id="patientSearch" onkeyup="searchPatients()" placeholder="ابحث باسم المريض أو رقم الهاتف..." class="w-full pr-12 py-3 rounded-2xl bg-white border-none shadow-sm outline-none focus:ring-2 focus:ring-cyan-500">
+                    </div>
+                </div>
+                <div class="bg-white rounded-[2rem] shadow-sm overflow-hidden border border-slate-100">
+                    <table class="w-full text-right">
+                        <thead class="bg-slate-50 border-b border-slate-100">
+                            <tr>
+                                <th class="p-5 font-bold text-slate-600">المريض</th>
+                                <th class="p-5 font-bold text-slate-600">التاريخ</th>
+                                <th class="p-5 font-bold text-slate-600">آخر إجراء</th>
+                                <th class="p-5 font-bold text-slate-600">الحالة المادية</th>
+                                <th class="p-5 font-bold text-slate-600">الإجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="patients-table-body" class="divide-y divide-slate-50"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Section: Add/Edit Patient (The Full Form) -->
+            <div id="tab-add" class="tab-content hidden max-w-5xl mx-auto bg-white rounded-[2.5rem] p-10 shadow-2xl border border-slate-100">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
+                    <!-- Right: Info -->
+                    <div class="space-y-6">
+                        <h3 class="text-xl font-bold border-r-4 border-cyan-600 pr-4">المعلومات الشخصية</h3>
+                        <div class="space-y-4">
+                            <input type="text" id="p_name" placeholder="اسم المريض الرباعي" class="w-full p-4 rounded-2xl bg-slate-50 outline-none">
+                            <input type="tel" id="p_phone" placeholder="رقم الموبايل" class="w-full p-4 rounded-2xl bg-slate-50 outline-none">
+                            <textarea id="p_history" placeholder="التاريخ الطبي (أمراض مزمنة، حساسية..)" class="w-full p-4 rounded-2xl bg-slate-50 outline-none h-24"></textarea>
+                        </div>
+
+                        <h3 class="text-xl font-bold border-r-4 border-emerald-600 pr-4 mt-10">الكيس شيت (Case Sheet)</h3>
+                        <div class="bg-emerald-50 p-6 rounded-[2rem] space-y-4">
+                            <select id="t_type" class="w-full p-3 rounded-xl bg-white border-none">
+                                <option value="Endo">Endo (حشوة جذر)</option>
+                                <option value="Exo">Exo (قلع)</option>
+                                <option value="Imp">Implant (زراعة)</option>
+                                <option value="Opr">Opr (حشوة ضوئية)</option>
+                                <option value="Crown">Crown (تلبيس)</option>
+                            </select>
+                            <div class="grid grid-cols-2 gap-4">
+                                <input type="number" id="t_total" oninput="calcFinance()" placeholder="السعر الكلي" class="p-3 rounded-xl">
+                                <input type="number" id="t_paid" oninput="calcFinance()" placeholder="المدفوع حالياً" class="p-3 rounded-xl font-bold text-emerald-700">
+                            </div>
+                            <div class="p-3 bg-white rounded-xl flex justify-between items-center font-bold">
+                                <span>المتبقي:</span>
+                                <span id="t_balance" class="text-rose-600 font-black">0 د.ع</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Left: Gallery & Save -->
+                    <div class="space-y-6">
+                        <h3 class="text-xl font-bold border-r-4 border-purple-600 pr-4">ألبوم الصور و OPG</h3>
+                        <div class="grid grid-cols-2 gap-4" id="image-previews">
+                            <div onclick="document.getElementById('file-input').click()" class="aspect-square rounded-[2rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 cursor-pointer hover:bg-slate-50 transition">
+                                <i data-lucide="image-plus"></i>
+                                <span class="text-[10px] mt-2 font-bold uppercase">إضافة صورة</span>
+                                <input type="file" id="file-input" class="hidden" multiple onchange="handleImages(event)">
+                            </div>
+                        </div>
+
+                        <div class="pt-10">
+                            <button onclick="savePatient()" class="w-full py-5 bg-cyan-600 text-white rounded-[2rem] font-black text-xl shadow-xl hover:bg-cyan-700 transform hover:-translate-y-1 transition-all">حفظ ملف المريض الآن</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- Modal for Patient Details -->
+<div id="details-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] hidden items-center justify-center p-6">
+    <div class="bg-white w-full max-w-4xl rounded-[3rem] p-10 max-h-[90vh] overflow-y-auto relative">
+        <button onclick="closeModal()" class="absolute left-6 top-6 text-slate-400 hover:text-slate-800"><i data-lucide="x-circle"></i></button>
+        <div id="modal-body"></div>
+    </div>
+</div>
+
+<script>
+    let patients = JSON.parse(localStorage.getItem('dentai_pro_db')) || [];
+    let currentImages = [];
+
+    // Navigation
+    function switchTab(tabId) {
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.add('hidden'));
+        document.querySelectorAll('.sidebar-btn').forEach(b => b.classList.remove('active', 'text-white', 'bg-cyan-600'));
+        
+        document.getElementById('tab-' + tabId).classList.remove('hidden');
+        document.getElementById('btn-' + tabId).classList.add('active');
+        
+        const titles = { 'dashboard': 'لوحة التحكم', 'patients': 'سجل المرضى الكل', 'add': 'إضافة مريض جديد' };
+        document.getElementById('tab-title').innerText = titles[tabId];
+        
+        if(tabId === 'dashboard') updateDashboard();
+        if(tabId === 'patients') renderPatientsTable();
+    }
+
+    // Finance Logic
+    function calcFinance() {
+        const total = parseFloat(document.getElementById('t_total').value) || 0;
+        const paid = parseFloat(document.getElementById('t_paid').value) || 0;
+        document.getElementById('t_balance').innerText = (total - paid).toLocaleString() + ' د.ع';
+    }
+
+    // Image Handling
+    function handleImages(event) {
+        const files = event.target.files;
+        for (let file of files) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                currentImages.push(e.target.result);
+                renderPreviews();
+            }
+            reader.readAsDataURL(file);
+        }
+    }
+
+    function renderPreviews() {
+        const container = document.getElementById('image-previews');
+        // Keep only the 'plus' button and add images
+        container.innerHTML = `<div onclick="document.getElementById('file-input').click()" class="aspect-square rounded-[2rem] border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 cursor-pointer hover:bg-slate-50 transition"><i data-lucide="image-plus"></i><span class="text-[10px] mt-2 font-bold uppercase">إضافة صورة</span><input type="file" id="file-input" class="hidden" multiple onchange="handleImages(event)"></div>`;
+        currentImages.forEach(src => {
+            const div = document.createElement('div');
+            div.className = "aspect-square rounded-[2rem] overflow-hidden border border-slate-100 relative group";
+            div.innerHTML = `<img src="${src}" class="w-full h-full object-cover">`;
+            container.appendChild(div);
+        });
+        lucide.createIcons();
+    }
+
+    // Save Patient
+    function savePatient() {
+        const name = document.getElementById('p_name').value;
+        if(!name) return alert("يرجى إدخال اسم المريض");
+
+        const newPatient = {
+            id: Date.now(),
+            name: name,
+            phone: document.getElementById('p_phone').value,
+            history: document.getElementById('p_history').value,
+            treatment: document.getElementById('t_type').value,
+            totalPrice: parseFloat(document.getElementById('t_total').value) || 0,
+            paid: parseFloat(document.getElementById('t_paid').value) || 0,
+            images: currentImages,
+            date: new Date().toLocaleDateString('ar-EG')
+        };
+
+        patients.push(newPatient);
+        localStorage.setItem('dentai_pro_db', JSON.stringify(patients));
+        
+        alert("تم حفظ ملف المريض بنجاح!");
+        resetForm();
+        switchTab('dashboard');
+    }
+
+    function resetForm() {
+        document.getElementById('p_name').value = '';
+        document.getElementById('p_phone').value = '';
+        document.getElementById('p_history').value = '';
+        document.getElementById('t_total').value = '';
+        document.getElementById('t_paid').value = '';
+        currentImages = [];
+        renderPreviews();
+        calcFinance();
+    }
+
+    // Dashboard Updates
+    function updateDashboard() {
+        document.getElementById('stat-count').innerText = patients.length;
+        const revenue = patients.reduce((acc, p) => acc + p.paid, 0);
+        const total = patients.reduce((acc, p) => acc + p.totalPrice, 0);
+        document.getElementById('stat-revenue').innerText = revenue.toLocaleString() + ' د.ع';
+        document.getElementById('stat-debts').innerText = (total - revenue).toLocaleString() + ' د.ع';
+
+        const recentList = document.getElementById('recent-list');
+        recentList.innerHTML = patients.slice(-5).reverse().map(p => `
+            <div class="flex justify-between items-center p-4 bg-slate-50 rounded-2xl">
+                <div class="flex gap-4 items-center">
+                    <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center font-bold text-cyan-600">${p.name[0]}</div>
+                    <div><p class="font-bold text-sm">${p.name}</p><p class="text-[10px] text-slate-400">${p.treatment}</p></div>
+                </div>
+                <p class="text-xs font-bold text-emerald-600">${p.paid.toLocaleString()} د.ع</p>
+            </div>
+        `).join('');
+    }
+
+    // Table Rendering
+    function renderPatientsTable(filtered = patients) {
+        const tbody = document.getElementById('patients-table-body');
+        tbody.innerHTML = filtered.slice().reverse().map(p => `
+            <tr class="hover:bg-slate-50 transition group">
+                <td class="p-5 font-bold">${p.name}</td>
+                <td class="p-5 text-slate-500 text-sm">${p.date}</td>
+                <td class="p-5"><span class="bg-cyan-50 text-cyan-600 px-3 py-1 rounded-lg text-xs font-bold">${p.treatment}</span></td>
+                <td class="p-5 font-bold text-rose-600">${(p.totalPrice - p.paid).toLocaleString()} د.ع</td>
+                <td class="p-5">
+                    <button onclick="viewDetails(${p.id})" class="text-slate-400 hover:text-cyan-600"><i data-lucide="eye"></i></button>
+                    <button onclick="deletePatient(${p.id})" class="text-slate-400 hover:text-rose-600 mr-3"><i data-lucide="trash-2"></i></button>
+                </td>
+            </tr>
+        `).join('');
+        lucide.createIcons();
+    }
+
+    function searchPatients() {
+        const query = document.getElementById('patientSearch').value.toLowerCase();
+        const filtered = patients.filter(p => p.name.toLowerCase().includes(query) || p.phone.includes(query));
+        renderPatientsTable(filtered);
+    }
+
+    function deletePatient(id) {
+        if(confirm("هل أنت متأكد من مسح ملف المريض؟")) {
+            patients = patients.filter(p => p.id !== id);
+            localStorage.setItem('dentai_pro_db', JSON.stringify(patients));
+            renderPatientsTable();
+        }
+    }
+
+    // Patient Details & PDF
+    function viewDetails(id) {
+        const p = patients.find(p => p.id === id);
+        const modal = document.getElementById('details-modal');
+        const body = document.getElementById('modal-body');
+        
+        body.innerHTML = `
+            <div class="flex justify-between items-start mb-8">
+                <div>
+                    <h2 class="text-3xl font-black text-cyan-800">${p.name}</h2>
+                    <p class="text-slate-500">رقم الهاتف: ${p.phone}</p>
+                </div>
+                <button onclick="exportToPDF(${p.id})" class="bg-slate-900 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2">
+                    <i data-lucide="download"></i> تحميل التقرير PDF
+                </button>
+            </div>
+            <div class="grid grid-cols-2 gap-10">
+                <div class="space-y-6">
+                    <div class="bg-slate-50 p-6 rounded-3xl">
+                        <h4 class="font-bold mb-2 text-cyan-600">التاريخ الطبي</h4>
+                        <p class="text-sm">${p.history || 'لا يوجد تاريخ مسجل'}</p>
+                    </div>
+                    <div class="bg-emerald-50 p-6 rounded-3xl">
+                        <h4 class="font-bold mb-2 text-emerald-600">تفاصيل العلاج والمالية</h4>
+                        <div class="flex justify-between text-sm mb-1"><span>نوع الإجراء:</span> <b>${p.treatment}</b></div>
+                        <div class="flex justify-between text-sm mb-1"><span>المبلغ الكلي:</span> <b>${p.totalPrice.toLocaleString()}</b></div>
+                        <div class="flex justify-between text-sm mb-1 text-emerald-700"><span>المدفوع:</span> <b>${p.paid.toLocaleString()}</b></div>
+                        <hr class="my-2 border-emerald-100">
+                        <div class="flex justify-between font-black text-rose-600"><span>المتبقي:</span> <b>${(p.totalPrice - p.paid).toLocaleString()} د.ع</b></div>
+                    </div>
+                </div>
+                <div>
+                    <h4 class="font-bold mb-4">الأشعة والصور</h4>
+                    <div class="grid grid-cols-2 gap-4">
+                        ${p.images.map(img => `<img src="${img}" class="w-full h-32 object-cover rounded-2xl border shadow-sm">`).join('')}
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        lucide.createIcons();
+    }
+
+    function closeModal() {
+        document.getElementById('details-modal').classList.add('hidden');
+    }
+
+    async function exportToPDF(id) {
+        const { jsPDF } = window.jspdf;
+        const p = patients.find(p => p.id === id);
+        const doc = new jsPDF();
+        
+        doc.setFontSize(22);
+        doc.text("DentAI Pro - Patient Report", 20, 20);
+        doc.setFontSize(14);
+        doc.text(`Patient: ${p.name}`, 20, 40);
+        doc.text(`Date: ${p.date}`, 20, 50);
+        doc.text(`Treatment: ${p.treatment}`, 20, 60);
+        doc.text(`Total Price: ${p.totalPrice} IQD`, 20, 70);
+        doc.text(`Paid: ${p.paid} IQD`, 20, 80);
+        doc.text(`Balance: ${p.totalPrice - p.paid} IQD`, 20, 90);
+        doc.text(`Medical History: ${p.history}`, 20, 105);
+        
+        doc.save(`DentAI_${p.name}.pdf`);
+    }
+
+    // Init
+    window.onload = () => {
+        updateDashboard();
+        lucide.createIcons();
+    };
+</script>
+
+</body>
+</html>
