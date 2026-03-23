@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DentAI Pro V4 | الوحش البرمجي للعيادات</title>
+    
+    <!-- Libraries -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;500;700;900&display=swap" rel="stylesheet">
+
+    <style>
+        :root { --p: #0ea5e9; --s: #0f172a; --bg: #f8fafc; }
+        body { font-family: 'Tajawal', sans-serif; background: var(--bg); transition: 0.3s; }
+        .dark { --bg: #0b0f1a; color: white; }
+        .dark .bg-white { background: #161b2a !important; color: white; border-color: #1e293b; }
+        .dark input, .dark textarea, .dark select { background: #1e293b !important; color: white; border: none; }
+        
+        .tooth-card:hover { transform: translateY(-5px); box-shadow: 0 20px 25px -5px rgba(14, 165, 233, 0.2); }
+        .tab-btn.active { border-bottom: 4px solid var(--p); color: var(--p); font-weight: 900; }
+        
+        /* Dental Chart Styling */
+        .teeth-grid { display: grid; grid-template-columns: repeat(16, 1fr); gap: 4px; direction: ltr; }
+        .tooth-box { aspect-ratio: 1/1.5; border: 1px solid #ddd; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; cursor: pointer; transition: 0.2s; background: white; color: black; }
+        .tooth-box.active { background: #0ea5e9; color: white; border-color: #0ea5e9; box-shadow: 0 0 8px #0ea5e9; }
+        
+        @keyframes pulse-ring { 0% { transform: scale(.33); } 80%, 100% { opacity: 0; } }
+    </style>
+</head>
+<body class="overflow-hidden">
+
+<!-- Loading Screen -->
+<div id="loader" class="fixed inset-0 bg-slate-900 z-[200] flex flex-col items-center justify-center text-white">
+    <i data-lucide="tooth" class="w-20 h-20 text-cyan-500 animate-bounce"></i>
+    <h2 class="text-2xl font-black mt-4 tracking-widest">DentAI PRO <span class="text-cyan-500 italic">V4</span></h2>
+    <div class="w-48 h-1 bg-slate-800 mt-4 rounded-full overflow-hidden">
+        <div class="h-full bg-cyan-500 animate-[loading_2s_ease-in-out_infinite]"></div>
+    </div>
+</div>
+
+<div class="flex h-screen">
+    <!-- Sidebar -->
+    <aside class="w-72 bg-slate-900 text-white flex flex-col p-6 shadow-2xl z-50">
+        <div class="flex items-center gap-4 mb-10 px-2">
+            <div class="bg-cyan-500 p-2 rounded-2xl shadow-lg shadow-cyan-500/20"><i data-lucide="zap" class="w-6 h-6 text-white"></i></div>
+            <h1 class="text-xl font-black italic">DentAI <span class="text-cyan-400">BEAST</span></h1>
+        </div>
+
+        <nav class="space-y-2 flex-1">
+            <button onclick="showTab('dash')" class="nav-item w-full flex items-center gap-4 px-4 py-3 rounded-xl bg-slate-800 text-cyan-400 font-black"><i data-lucide="layout-dashboard"></i> لوحة التحكم</button>
+            <button onclick="showTab('patients')" class="nav-item w-full flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-slate-800 transition-all"><i data-lucide="users"></i> المرضى والزيارات</button>
+            <button onclick="showTab('add')" class="nav-item w-full flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-slate-800 transition-all"><i data-lucide="file-plus"></i> إضافة حالة</button>
+            <button onclick="showTab('analytics')" class="nav-item w-full flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-slate-800 transition-all"><i data-lucide="trending-up"></i> التحليل المالي</button>
+        </nav>
+
+        <div class="mt-auto pt-6 border-t border-slate-800">
+            <button onclick="toggleDarkMode()" class="w-full flex items-center justify-between p-4 bg-slate-800 rounded-2xl mb-4">
+                <span class="text-xs font-bold uppercase">الوضع الليلي</span>
+                <i data-lucide="moon" id="theme-icon"></i>
+            </button>
+            <div class="p-4 bg-cyan-500/10 rounded-2xl text-[10px] text-cyan-400 font-bold text-center italic">PRO LICENSE: ACTIVATED</div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 overflow-y-auto">
+        <!-- Header -->
+        <header class="sticky top-0 bg-white/10 backdrop-blur-2xl border-b border-slate-200/20 px-10 py-5 flex justify-between items-center z-40">
+            <div class="flex items-center gap-4">
+                <h2 id="tab-title" class="text-2xl font-black uppercase text-slate-800">إحصائيات "The Beast"</h2>
+            </div>
+            <div class="flex items-center gap-6">
+                <div class="relative group">
+                    <i data-lucide="bell" class="w-6 h-6 text-slate-400 cursor-pointer"></i>
+                    <span class="absolute -top-1 -right-1 w-2 h-2 bg-rose-500 rounded-full"></span>
+                </div>
+                <div class="flex items-center gap-3 bg-white p-2 pr-6 rounded-2xl shadow-sm border border-slate-100">
+                    <div class="text-left"><p class="text-xs font-black">د. علي الأسدي</p><p class="text-[9px] text-slate-400">مدير النظام</p></div>
+                    <div class="w-10 h-10 bg-cyan-500 rounded-xl"></div>
+                </div>
+            </div>
+        </header>
+
+        <div class="p-10 space-y-10">
+            
+            <!-- Tab: Dashboard -->
+            <section id="tab-dash" class="tab-content space-y-10">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+                    <div class="bg-white p-8 rounded-[2.5rem] shadow-sm relative overflow-hidden group">
+                        <div class="absolute -right-4 -top-4 bg-cyan-500/10 w-24 h-24 rounded-full transition-all group-hover:scale-150"></div>
+                        <p class="text-slate-400 text-xs font-black uppercase mb-2">إجمالي المرضى</p>
+                        <h4 class="text-5xl font-black" id="dash-patients">0</h4>
+                    </div>
+                    <div class="bg-white p-8 rounded-[2.5rem] shadow-sm relative overflow-hidden group">
+                        <div class="absolute -right-4 -top-4 bg-emerald-500/10 w-24 h-24 rounded-full transition-all group-hover:scale-150"></div>
+                        <p class="text-slate-400 text-xs font-black uppercase mb-2">دخل العيادة</p>
+                        <h4 class="text-4xl font-black text-emerald-500" id="dash-rev">0</h4>
+                    </div>
+                    <div class="bg-white p-8 rounded-[2.5rem] shadow-sm border-2 border-rose-500/20">
+                        <p class="text-slate-400 text-xs font-black uppercase mb-2 text-rose-500 italic font-black text-[10px]">مطلوب ديون</p>
+                        <h4 class="text-4xl font-black text-rose-500" id="dash-debt">0</h4>
+                    </div>
+                    <div class="bg-slate-900 p-8 rounded-[2.5rem] shadow-xl text-white">
+                        <p class="text-cyan-400 text-xs font-black uppercase mb-2">حالات اليوم</p>
+                        <h4 class="text-4xl font-black">18</h4>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div class="bg-white p-10 rounded-[3rem] shadow-sm border border-slate-100">
+                        <h3 class="font-black mb-6 flex items-center gap-3 uppercase italic text-cyan-600 tracking-widest"><i data-lucide="activity"></i> مسار الأرباح الشهري</h3>
+                        <canvas id="mainChart" height="150"></canvas>
+                    </div>
+                    <div class="bg-white p-10 rounded-[3rem] shadow-sm border border-slate-100 overflow-y-auto max-h-[400px]">
+                        <h3 class="font-black mb-6 flex items-center justify-between">
+                            <span class="flex items-center gap-3 text-rose-500 italic"><i data-lucide="clock"></i> آخر المراجعات</span>
+                            <span class="text-[10px] bg-slate-100 px-3 py-1 rounded-full text-slate-400 font-bold uppercase tracking-tighter italic">Live Feed</span>
+                        </h3>
+                        <div id="feed-list" class="space-y-4"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Tab: Add Case (The AI & Clinical Form) -->
+            <section id="tab-add" class="tab-content hidden max-w-5xl mx-auto">
+                <div class="bg-white rounded-[4rem] p-12 shadow-2xl border border-slate-100">
+                    <div class="flex justify-between items-center mb-12">
+                        <h2 class="text-3xl font-black border-r-8 border-cyan-500 pr-5">فتح سجل طبي جديد</h2>
+                        <div class="bg-cyan-50 text-cyan-600 px-4 py-2 rounded-xl text-xs font-black italic">AI ASSISTANT ENABLED</div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                        <!-- Left: Basics -->
+                        <div class="space-y-6">
+                            <div class="space-y-2">
+                                <label class="text-[10px] font-black uppercase text-slate-400 mr-2 tracking-widest italic">Patient Name</label>
+                                <input type="text" id="p_name" placeholder="اسم المريض بالكامل..." class="w-full p-5 rounded-2xl bg-slate-50 font-bold text-lg outline-none focus:ring-4 focus:ring-cyan-500/10 transition-all border-none">
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="space-y-2">
+                                    <label class="text-[10px] font-black uppercase text-slate-400 mr-2 italic">Phone</label>
+                                    <input type="tel" id="p_phone" placeholder="07XXXXXXXX" class="w-full p-4 rounded-2xl bg-slate-50 outline-none border-none">
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="text-[10px] font-black uppercase text-slate-400 mr-2 italic">Treatment Date</label>
+                                    <input type="date" id="p_date" class="w-full p-4 rounded-2xl bg-slate-50 outline-none border-none">
+                                </div>
+                            </div>
+                            <!-- AI Diagnosis -->
+                            <div class="p-6 bg-slate-900 rounded-[2.5rem] text-white space-y-4">
+                                <div class="flex items-center gap-2 text-cyan-400 font-black italic text-xs uppercase tracking-widest">
+                                    <i data-lucide="sparkles" class="w-4 h-4"></i> مساعد التشخيص الذكي
+                                </div>
+                                <textarea id="p_symptoms" placeholder="صف الأعراض هنا (مثلاً: ألم شديد مع الحلويات)..." class="w-full bg-slate-800 border-none rounded-xl p-4 text-xs italic text-slate-300 outline-none h-20"></textarea>
+                                <div id="ai-suggestion" class="text-[10px] text-emerald-400 font-bold italic animate-pulse"></div>
+                            </div>
+                        </div>
+
+                        <!-- Right: Advanced Dental Chart -->
+                        <div class="space-y-6 text-center">
+                            <h3 class="text-xs font-black uppercase text-slate-400 tracking-[0.3em]">Advanced Dental Map</h3>
+                            <div class="bg-white p-6 rounded-[2.5rem] shadow-inner border border-slate-100 flex flex-col gap-4">
+                                <div class="teeth-grid">
+                                    <script>for(let i=18; i>=11; i--) document.write(`<div onclick="selT(${i})" id="t-${i}" class="tooth-box">${i}</div>`);</script>
+                                    <script>for(let i=21; i<=28; i++) document.write(`<div onclick="selT(${i})" id="t-${i}" class="tooth-box">${i}</div>`);</script>
+                                </div>
+                                <div class="teeth-grid">
+                                    <script>for(let i=48; i>=41; i--) document.write(`<div onclick="selT(${i})" id="t-${i}" class="tooth-box">${i}</div>`);</script>
+                                    <script>for(let i=31; i<=38; i++) document.write(`<div onclick="selT(${i})" id="t-${i}" class="tooth-box">${i}</div>`);</script>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <input type="number" id="t_total" placeholder="السعر الكلي (د.ع)" class="p-4 rounded-2xl bg-slate-50 border-none font-black text-xl text-center outline-none">
+                                <input type="number" id="t_paid" placeholder="المدفوع" class="p-4 rounded-2xl bg-slate-50 border-none font-black text-xl text-center text-emerald-600 outline-none">
+                            </div>
+                            <button onclick="saveBeast()" id="saveBtn" class="w-full py-6 bg-cyan-600 text-white rounded-[2rem] font-black text-2xl shadow-xl shadow-cyan-600/30 hover:bg-cyan-700 transform hover:scale-[1.02] transition-all uppercase tracking-widest italic">Deploy to Cloud</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Tab: Patients List -->
+            <section id="tab-patients" class="tab-content hidden">
+                <div class="bg-white rounded-[3.5rem] shadow-sm border border-slate-100 overflow-hidden">
+                    <div class="p-10 border-b border-slate-50 flex justify-between items-center">
+                        <h3 class="text-2xl font-black italic tracking-tighter">سجل المرضى الكلي</h3>
+                        <div class="relative w-96 group">
+                            <i data-lucide="search" class="absolute right-4 top-4 text-slate-300 group-hover:text-cyan-500 transition-all"></i>
+                            <input type="text" onkeyup="searchBeast(this.value)" placeholder="ابحث بالاسم، الرقم، أو السن..." class="w-full pr-12 py-4 rounded-2xl bg-slate-50 border-none outline-none focus:ring-4 focus:ring-cyan-500/10 font-bold">
+                        </div>
+                    </div>
+                    <table class="w-full text-right">
+                        <thead>
+                            <tr class="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] bg-slate-50/50">
+                                <th class="p-6 pr-10">المريض</th>
+                                <th class="p-6">خارطة الأسنان</th>
+                                <th class="p-6">الوضع المالي</th>
+                                <th class="p-6">تاريخ الزيارة</th>
+                                <th class="p-6 pl-10">إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="beast-list" class="divide-y divide-slate-50"></tbody>
+                    </table>
+                </div>
+            </section>
+
+        </div>
+    </main>
+</div>
+
+<!-- Firebase Modular Integration (The CORE) -->
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+    // إعدادات Firebase الخاصة بك
+    const firebaseConfig = {
+      apiKey: "AIzaSyC4Uw5brOaiQnX1E2ZCBNtSAiN5f-DMWLc",
+      authDomain: "dentai-db.firebaseapp.com",
+      projectId: "dentai-db",
+      storageBucket: "dentai-db.firebasestorage.app",
+      messagingSenderId: "765409045103",
+      appId: "1:765409045103:web:39ed7a9922b16272ef3b9a",
+      measurementId: "G-0S65PJXH0L"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // --- Tooth Selection ---
+    let selectedTeeth = [];
+    window.selT = (n) => {
+        const el = document.getElementById(`t-${n}`);
+        if(selectedTeeth.includes(n)) {
+            selectedTeeth = selectedTeeth.filter(t => t !== n);
+            el.classList.remove('active');
+        } else {
+            selectedTeeth.push(n);
+            el.classList.add('active');
+        }
+    };
+
+    // --- AI Suggestion Simulation ---
+    document.getElementById('p_symptoms').addEventListener('input', function(e) {
+        const text = e.target.value.toLowerCase();
+        const sug = document.getElementById('ai-suggestion');
+        if(text.includes('ألم') && text.includes('حار')) sug.innerText = "Suggested Diagnosis: Acute Pulpitis (تحتاج حشوة جذر)";
+        else if(text.includes('قلع') || text.includes('مكسور')) sug.innerText = "Suggested Diagnosis: Extraction (قلع سن)";
+        else if(text.includes('تنظيف')) sug.innerText = "Suggested Diagnosis: Scaling & Polishing";
+        else sug.innerText = "";
+    });
+
+    // --- Tab Switching ---
+    window.showTab = (id) => {
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.add('hidden'));
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('bg-slate-800', 'text-cyan-400', 'font-black'));
+        
+        document.getElementById('tab-' + id).classList.remove('hidden');
+        event.currentTarget.classList.add('bg-slate-800', 'text-cyan-400', 'font-black');
+        
+        const titles = { 'dash': 'إحصائيات "The Beast"', 'add': 'فتح سجل طبي', 'patients': 'سجل المرضى الكلي', 'analytics': 'التحليل المالي المتقدم' };
+        document.getElementById('tab-title').innerText = titles[id];
+    };
+
+    // --- Save Logic (The Beast Save) ---
+    window.saveBeast = async () => {
+        const btn = document.getElementById('saveBtn');
+        const name = document.getElementById('p_name').value;
+        const total = parseFloat(document.getElementById('t_total').value) || 0;
+        const paid = parseFloat(document.getElementById('t_paid').value) || 0;
+
+        if(!name) return alert("يرجى كتابة اسم المريض!");
+        
+        btn.disabled = true;
+        btn.innerHTML = "SYCHRONIZING WITH CLOUD...";
+
+        try {
+            await addDoc(collection(db, "patients"), {
+                name,
+                phone: document.getElementById('p_phone').value,
+                symptoms: document.getElementById('p_symptoms').value,
+                date: document.getElementById('p_date').value,
+                teeth: selectedTeeth,
+                total,
+                paid,
+                createdAt: serverTimestamp()
+            });
+            alert("SUCCESS: Patient file created in Google Cloud.");
+            location.reload();
+        } catch(e) { alert("ERROR: " + e.message); btn.disabled = false; }
+    };
+
+    // --- Real-time Core ---
+    function initApp() {
+        const q = query(collection(db, "patients"), orderBy("createdAt", "desc"));
+        onSnapshot(q, (snapshot) => {
+            const list = document.getElementById('beast-list');
+            const feed = document.getElementById('feed-list');
+            let totalRev = 0, totalDebt = 0, count = 0;
+            
+            list.innerHTML = "";
+            feed.innerHTML = "";
+
+            snapshot.forEach(docSnap => {
+                const p = docSnap.data();
+                const id = docSnap.id;
+                count++;
+                totalRev += p.paid;
+                totalDebt += (p.total - p.paid);
+
+                // Main Table
+                list.innerHTML += `
+                    <tr class="hover:bg-slate-50 transition border-b border-slate-50 group">
+                        <td class="p-6 pr-10">
+                            <p class="font-black text-slate-800 text-lg">${p.name}</p>
+                            <p class="text-[9px] text-slate-400 uppercase tracking-widest font-bold italic">${p.phone || 'NO PHONE'}</p>
+                        </td>
+                        <td class="p-6">
+                            <div class="flex flex-wrap gap-1">
+                                ${p.teeth?.map(t => `<span class="bg-cyan-500 text-white text-[8px] font-black px-2 py-0.5 rounded-full">${t}</span>`).join('') || '<span class="text-slate-300 text-[10px]">فحص عام</span>'}
+                            </div>
+                        </td>
+                        <td class="p-6 font-black">
+                            <p class="text-rose-500 text-sm">${(p.total - p.paid).toLocaleString()} <span class="text-[8px]">د.ع</span></p>
+                            <p class="text-[8px] text-emerald-500 italic uppercase">Paid: ${p.paid.toLocaleString()}</p>
+                        </td>
+                        <td class="p-6 text-[10px] text-slate-400 font-mono">${p.date || '---'}</td>
+                        <td class="p-6 pl-10 flex gap-3 opacity-20 group-hover:opacity-100 transition-all">
+                            <button onclick="delB('${id}')" class="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                            <button onclick="waB('${p.phone}', '${p.name}')" class="p-2 text-emerald-500 hover:bg-emerald-50 rounded-xl transition"><i data-lucide="message-circle" class="w-4 h-4"></i></button>
+                        </td>
+                    </tr>
+                `;
+
+                // Feed List
+                feed.innerHTML += `
+                    <div class="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border-r-4 border-cyan-500">
+                        <div><p class="text-xs font-black">${p.name}</p><p class="text-[8px] text-slate-400">${p.createdAt?.toDate().toLocaleTimeString('ar-EG') || 'الآن'}</p></div>
+                        <p class="text-[10px] font-black text-emerald-600">+${p.paid.toLocaleString()}</p>
+                    </div>
+                `;
+            });
+
+            document.getElementById('dash-patients').innerText = count;
+            document.getElementById('dash-rev').innerText = totalRev.toLocaleString();
+            document.getElementById('dash-debt').innerText = totalDebt.toLocaleString();
+            lucide.createIcons();
+            updateChart(totalRev, totalDebt);
+            document.getElementById('loader').classList.add('hidden');
+        });
+    }
+
+    // Chart Update
+    function updateChart(r, d) {
+        const ctx = document.getElementById('mainChart').getContext('2d');
+        if(window.beastChart) window.beastChart.destroy();
+        window.beastChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['مدفوع', 'ديون'],
+                datasets: [{
+                    data: [r, d],
+                    backgroundColor: ['#0ea5e9', '#f43f5e'],
+                    borderWidth: 0,
+                    hoverOffset: 20
+                }]
+            },
+            options: { cutout: '80%', plugins: { legend: { position: 'bottom', labels: { font: { family: 'Tajawal', weight: 'bold' } } } } }
+        });
+    }
+
+    window.delB = async (id) => { if(confirm("حذف ملف المريض؟")) await deleteDoc(doc(db, "patients", id)); };
+    window.waB = (ph, nm) => { window.open(`https://wa.me/${ph}?text=مرحباً دكتور/ ${nm}. نذكركم بموعدكم القادم في DentAI Pro.`, '_blank'); };
+    window.toggleDarkMode = () => { document.body.classList.toggle('dark'); };
+
+    initApp();
+    lucide.createIcons();
+</script>
+
+</body>
+</html>
